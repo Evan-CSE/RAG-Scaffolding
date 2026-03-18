@@ -4,6 +4,7 @@ from utils.extractor import (
     BengaliTextProcessor,
     PyPDFExtractionStrategy,
     OCRExtractionStrategy,
+    EasyOCRExtractionStrategy,
     SmartExtractor,
     Extractor
 )
@@ -54,6 +55,27 @@ class TestStrategies(unittest.TestCase):
         strategy = OCRExtractionStrategy(mock_doc)
         result = strategy.extract_page(0, None)
         self.assertEqual(result, "OCR Text")
+
+class TestEasyOCRExtractionStrategy(unittest.TestCase):
+    @patch("utils.extractor.easyocr.Reader")
+    def test_easyocr_strategy(self, mock_reader_cls):
+        mock_doc = MagicMock()
+        mock_page = MagicMock()
+        mock_doc.load_page.return_value = mock_page
+        mock_page.get_pixmap.return_value = MagicMock()
+        
+        # Mocking easyocr.Reader.readtext
+        mock_reader = mock_reader_cls.return_value
+        mock_reader.readtext.return_value = ["Bengali", "OCR", "Content"]
+        
+        # Mocking pixmap.tobytes
+        mock_page.get_pixmap.return_value.tobytes.return_value = b"fake_png_data"
+
+        strategy = EasyOCRExtractionStrategy(mock_doc)
+        result = strategy.extract_page(0, None)
+        
+        self.assertEqual(result, "Bengali\nOCR\nContent")
+        mock_reader.readtext.assert_called_once()
 
 class TestSmartExtractor(unittest.TestCase):
     @patch("utils.extractor.PdfReader")

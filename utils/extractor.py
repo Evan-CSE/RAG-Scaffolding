@@ -63,7 +63,7 @@ class PyPDFExtractionStrategy(ExtractionStrategy):
 
 class OCRExtractionStrategy(ExtractionStrategy):
     """OCR-based extraction using fitz and pytesseract."""
-    def __init__(self, doc: fitz.Document, lang: str = "ben"):
+    def __init__(self, doc: "fitz.Document", lang: str = "ben"):
         self.doc = doc
         self.lang = lang
         # ---- Minimal Windows fix. Will revert this ----
@@ -78,7 +78,7 @@ class OCRExtractionStrategy(ExtractionStrategy):
         return str(pytesseract.image_to_string(img, lang=self.lang))
 
 class EasyOCRExtractionStrategy(ExtractionStrategy):
-    def __init__(self, doc: fitz.Document, lang: str = "ben"):
+    def __init__(self, doc: "fitz.Document", lang: str = "ben"):
         self.doc = doc
         self.lang = lang
         self.reader = easyocr.Reader(['bn', 'en'])  # Bengali + English
