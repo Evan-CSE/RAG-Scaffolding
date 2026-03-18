@@ -1,24 +1,22 @@
-from utils.extractor import Extractor
-from utils.normalizer import get_processor
+from src.infrastructure.extraction.smart_extractor import ExtractorAdapter
+from src.infrastructure.normalization.bangla_processor import get_processor
+from src.application.services import DocumentProcessingService
 
-# 1. Initialize Extractor (now strictly for reading)
-extractor = Extractor("sample_pdf/sample.pdf")
-
-# 2. Extract raw text
-raw_text = extractor.extract()
-extractor.save_raw_text("sample_pdf/sample.txt")
-
-# 3. Initialize Normalizer/Processor
+# 1. Initialize Infrastructure Adapters
+extractor = ExtractorAdapter("sample_pdf/sample.pdf")
 processor = get_processor()
 
-# 4. Normalize the text
-normalized_text = processor.clean(raw_text)
+# 2. Initialize Application Service (Depend on Abstractions)
+service = DocumentProcessingService(extractor, processor)
 
-# 5. Output results
+# 3. Process and Normalize
+normalized_text = service.process_and_normalize(raw_text_save_path="sample_pdf/sample.txt")
+
+# 4. Output results
 print("--- Normalized Text ---")
 print(normalized_text)
 
-# 6. Save normalized text
+# 5. Save normalized text
 with open("sample_pdf/sample_normalized.txt", "w", encoding="utf-8") as f:
     f.write(normalized_text)
 

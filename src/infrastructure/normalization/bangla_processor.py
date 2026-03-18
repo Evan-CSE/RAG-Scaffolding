@@ -1,7 +1,7 @@
 import unicodedata
 import re
-from abc import ABC, abstractmethod
 from typing import List, Tuple, Optional
+from src.domain.interfaces import TextProcessor
 
 try:
     from bnunicodenormalizer import Normalizer as BNNormalizer
@@ -9,24 +9,9 @@ try:
 except ImportError:
     HAS_BNUNICODE = False
 
-
-class TextProcessor(ABC):
-    """Abstract base for text processing and validation."""
-    @abstractmethod
-    def clean(self, text: str) -> str:
-        """Clean and normalize the provided text."""
-        raise NotImplementedError
-
-    @abstractmethod
-    def validate(self, text: str) -> List[Tuple[int, str, str]]:
-        """Identify issues in the provided text."""
-        raise NotImplementedError
-
-
 class BanglaTextProcessor(TextProcessor):
     """
     Standalone Bangla Unicode normalization and validation for RAG pipelines.
-    Works with ANY text source, not just PDFs.
     """
     
     def __init__(self, config: dict = None):
@@ -42,19 +27,15 @@ class BanglaTextProcessor(TextProcessor):
             self._engine = None
     
     def clean(self, text: str) -> str:
-        """Main entry point - normalize Bangla text for RAG."""
         if not text:
             return ""
         
-        # Use bnunicodenormalizer if available
         if self._engine:
             return self._engine.normalize(text)
         
-        # Fallback to manual implementation
         return self._manual_normalize(text)
     
     def validate(self, text: str) -> List[Tuple[int, str, str]]:
-        """Identify issues in the provided text (Unicode issues, control chars, etc)."""
         if not text:
             return []
         issues = []
@@ -68,7 +49,6 @@ class BanglaTextProcessor(TextProcessor):
         return issues
 
     def _manual_normalize(self, text: str) -> str:
-        """Manual NFC + ZWNJ + digit normalization."""
         text = unicodedata.normalize("NFC", text)
         text = text.replace("\u200c", "")
         text = re.sub(
@@ -76,15 +56,11 @@ class BanglaTextProcessor(TextProcessor):
             lambda m: chr(ord(m.group()) + 0x09E6 - ord('0')), 
             text
         )
-        
         return text.strip()
 
-
-# Global instance for reuse across pipeline
 _default_processor = None
 
 def get_processor(config: dict = None) -> BanglaTextProcessor:
-    """Factory - reuse processor instance across pipeline."""
     global _default_processor
     if _default_processor is None or config:
         _default_processor = BanglaTextProcessor(config)
