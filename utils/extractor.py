@@ -1,52 +1,19 @@
 import unicodedata
 from abc import ABC, abstractmethod
 from typing import Any, Callable, List, Optional, Tuple
-
 import fitz
 import pytesseract
 from PIL import Image
 from PyPDF2 import PdfReader
 import platform
 import easyocr
+from utils.normalizer import TextProcessor
 
 """
 This module provides a modular system for extracting text from PDF files, 
 with a primary focus on Bengali language support and OCR fallback.
 """
 
-class TextProcessor(ABC):
-    """Abstract base for text processing and validation."""
-    @abstractmethod
-    def clean(self, text: str) -> str:
-        """Clean and normalize the provided text."""
-        raise NotImplementedError
-
-    @abstractmethod
-    def validate(self, text: str) -> List[Tuple[int, str, str]]:
-        """Identify issues in the provided text."""
-        raise NotImplementedError
-
-class BengaliTextProcessor(TextProcessor):
-    """Specific processor for Bengali text handling unicode normalization and ZWJ/ZWNJ."""
-    
-    def clean(self, text: str) -> str:
-        if not text:
-            return ""
-        text = unicodedata.normalize("NFC", text)
-        return text.replace("\u200c", "").replace("\u200d", "")
-
-    def validate(self, text: str) -> List[Tuple[int, str, str]]:
-        if not text:
-            return []
-        issues = []
-        for idx, char in enumerate(text):
-            if unicodedata.normalize("NFC", char) != char:
-                issues.append((idx, char, "non-NFC"))
-            if ord(char) < 32 and char not in ("\n", "\t"):
-                issues.append((idx, char, "control-char"))
-            if char in ("\u200c", "\u200d"):
-                issues.append((idx, char, "zwj-zwnj"))
-        return issues
 
 class ExtractionStrategy(ABC):
     """Base interface for different page extraction methods."""
@@ -115,12 +82,6 @@ class SmartExtractor:
         for i, page in enumerate(self.pages):
             print(f"[SmartExtractor] Processing page {i + 1}/{len(self.pages)}...")
             text = self._extract_with_fallback(i, page)
-            
-            # Narrowing Optional[TextProcessor]
-            proc = self.processor
-            if proc:
-                text = proc.clean(text)
-            
             self.results.append(text)
         
         return "\n\n".join(self.results)
@@ -128,7 +89,7 @@ class SmartExtractor:
     def _extract_with_fallback(self, page_number: int, page_obj: Any) -> str:
         text = self.primary_strategy.extract_page(page_number, page_obj)
         
-        should_fallback = text is None or self._is_garbled(text)
+        should_fallback = text is None or text.strip() == "" or self._is_garbled(text)
         
         # Narrowing processor for validation
         proc = self.processor
@@ -173,14 +134,13 @@ class Extractor:
     def __init__(self, file_path: str):
         self.file_path = file_path
         self.doc = fitz.open(file_path)
-        self.processor = BengaliTextProcessor()
         
         # Configure internal engine
         self._engine = SmartExtractor(
             file_path=file_path,
             primary_strategy=PyPDFExtractionStrategy(),
             fallback_strategy=EasyOCRExtractionStrategy(self.doc, "ben"),
-            processor=self.processor
+            processor=None
         )
         self.text = ""
 
